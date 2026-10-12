@@ -941,6 +941,7 @@ export default function UserHome() {
                   <div className="uh-profile-contact">
                     {profileModal.email && <div>✉ {profileModal.email}</div>}
                     {profileModal.phone && <div>📞 {profileModal.phone}</div>}
+                    {profileModal.county && <div>📍 {profileModal.county} County <span style={{ color: "#333" }}>(approximate)</span></div>}
                   </div>
                 </div>
               </div>

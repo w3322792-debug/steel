@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import CountyGate from "../components/CountyGate";
 
 import { apiUrl } from "../components/apiClient";
 const API_BASE = apiUrl("");
@@ -136,6 +137,7 @@ export default function WorkerHome() {
   // ── Render ────────────────────────────────────────────────────────────────
   return (
     <div className="wh-root">
+      <CountyGate />
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap');
 

@@ -2,6 +2,8 @@ import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { apiUrl } from "../components/apiClient";
+import { KENYA_COUNTIES } from "../components/counties";
+import CountyGate from "../components/CountyGate";
 const API_BASE = apiUrl("");
 
 // ── helpers ──────────────────────────────────────────────────────────────────
@@ -69,9 +71,11 @@ function MyProfile({ worker, onPhotoChange, onSave }) {
     phone:    worker?.phone    || "",
     work:     worker?.work     || "",
     bio:      worker?.bio      || "",
+    county:   worker?.county   || "",
   });
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [locating, setLocating] = useState(false);
   const [msg, setMsg] = useState({ type: "", text: "" });
 
   useEffect(() => {
@@ -81,6 +85,7 @@ function MyProfile({ worker, onPhotoChange, onSave }) {
       phone:    worker.phone    || "",
       work:     worker.work     || "",
       bio:      worker.bio      || "",
+      county:   worker.county   || "",
     });
   }, [worker]);
 
@@ -131,6 +136,49 @@ function MyProfile({ worker, onPhotoChange, onSave }) {
     } finally {
       setSaving(false);
     }
+  };
+
+  // Asks the browser for the worker's position ONCE, sends it to the server,
+  // and keeps only the county name that comes back. Coordinates are not kept.
+  const detectCounty = () => {
+    if (!navigator.geolocation) {
+      setMsg({ type: "error", text: "Your browser cannot share location. Please choose your county from the list." });
+      return;
+    }
+    setLocating(true);
+    setMsg({ type: "", text: "" });
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        try {
+          const res = await fetch(`${API_BASE}/api/worker/detect_county`, {
+            method: "POST",
+            headers: { ...authHeaders(), "Content-Type": "application/json" },
+            body: JSON.stringify({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+          });
+          const json = await res.json();
+          if (res.ok && json.county) {
+            setForm(f => ({ ...f, county: json.county }));
+            setMsg({ type: "success", text: `Detected: ${json.county} County. Press Save Changes to keep it.` });
+          } else {
+            setMsg({ type: "error", text: json.error || "Could not detect your county." });
+          }
+        } catch {
+          setMsg({ type: "error", text: "Could not reach server." });
+        } finally {
+          setLocating(false);
+        }
+      },
+      (err) => {
+        setLocating(false);
+        setMsg({
+          type: "error",
+          text: err.code === 1
+            ? "Location permission was denied. You can choose your county from the list instead."
+            : "Could not get your location. Please choose your county from the list.",
+        });
+      },
+      { enableHighAccuracy: false, timeout: 15000, maximumAge: 600000 }
+    );
   };
 
   const WORK_TYPES = ["Welder","Fabricator","Blacksmith","Metalworker","Machinist","Plumbers","Structural Engineer","Painter"];
@@ -195,6 +243,21 @@ function MyProfile({ worker, onPhotoChange, onSave }) {
             </select>
           </div>
           <div className="wp-field">
+            <label className="wp-label">County</label>
+            <select className="wp-input" value={form.county}
+              onChange={e => setForm({ ...form, county: e.target.value })}>
+              <option value="">Select county...</option>
+              {KENYA_COUNTIES.map(c => <option key={c} value={c}>{c}</option>)}
+            </select>
+            <button type="button" className="wp-btn-ghost" style={{ marginTop: 8 }}
+              onClick={detectCounty} disabled={locating}>
+              {locating ? "Detecting..." : "📍 Detect my county"}
+            </button>
+            <div style={{ fontSize: 11, color: "#666", marginTop: 6, lineHeight: 1.5 }}>
+              Clients only see your county. Your exact location is never saved or shown.
+            </div>
+          </div>
+          <div className="wp-field">
             <label className="wp-label">Bio</label>
             <textarea className="wp-input wp-textarea"
               value={form.bio}
@@ -212,6 +275,7 @@ function MyProfile({ worker, onPhotoChange, onSave }) {
           {[
             { label: "Phone",   value: worker?.phone || "—" },
             { label: "Trade",   value: worker?.work  || "—" },
+            { label: "County",  value: worker?.county || "—" },
             { label: "Email",   value: worker?.email || "—" },
             { label: "Member since", value: worker?.createdAt ? new Date(worker.createdAt).toLocaleDateString() : "—" },
           ].map(i => (
@@ -1322,6 +1386,7 @@ export default function WorkerProfile() {
       `}</style>
 
       <div className="wp-root">
+        <CountyGate onCountyChange={(c) => setWorker(w => ({ ...w, county: c }))} />
         {/* Nav */}
         <nav className="wp-nav">
           <div style={{display:"flex",alignItems:"center",gap:12}}>
